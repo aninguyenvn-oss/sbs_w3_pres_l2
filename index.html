@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GuessIt — Picture Reveal Speaking Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e14;
+      --surface: #18181f;
+      --surface2: #202028;
+      --border: #2a2a36;
+      --text: #f0ede8;
+      --muted: #888080;
+      --accent: #f5c542;
+      --accent-dark: #0e0e14;
+      --green-bg: #1a2e20;
+      --green-border: #2d6040;
+      --green-text: #72e8a0;
+      --red-bg: #2e1a1a;
+      --red-border: #6b2f2f;
+      --red-text: #f0a0a0;
+      --blue-bg: #1a1e2e;
+      --blue-border: #2f4080;
+      --blue-text: #88aaff;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 16px 40px;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--text);
+    }
+    .logo span { color: var(--accent); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stat-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px 16px;
+      text-align: center;
+    }
+    .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+    .stat-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+    .stat-val.small { font-size: 14px; color: var(--text); }
+
+    /* ── Main layout ── */
+    .game-layout {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    /* ── Image area ── */
+    .image-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .image-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: 0 0 60px rgba(245,197,66,0.04);
+    }
+
+    .base-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+    }
+
+    .tile {
+      background: var(--surface);
+      border: 1.5px solid var(--bg);
+      cursor: pointer;
+      transition: background 0.2s ease, opacity 0.35s ease;
+    }
+
+    .tile:hover:not(.revealed) {
+      background: #2a2a38;
+    }
+
+    .tile.revealed {
+      background: transparent !important;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Toast */
+    .toast {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      background: var(--accent);
+      color: var(--accent-dark);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 9px 24px;
+      border-radius: 8px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 20;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Picture info bar */
+    .pic-info-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2px;
+    }
+
+    .pic-hint {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .squares-badge {
+      font-size: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 12px;
+      color: var(--muted);
+    }
+    .squares-badge strong { color: var(--accent); }
+
+    /* ── Score history ── */
+    .round-history {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .round-chip {
+      font-size: 11px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 10px;
+      color: var(--muted);
+    }
+    .round-chip.scored {
+      border-color: var(--green-border);
+      color: var(--green-text);
+      background: var(--green-bg);
+    }
+    .round-chip.skipped {
+      border-color: var(--border);
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    /* ── Controls sidebar ── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 160px;
+      flex-shrink: 0;
+    }
+
+    .ctrl-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .ctrl-title {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: #ccc;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      text-align: left;
+    }
+    .btn:hover { background: #2a2a38; border-color: #3a3a50; }
+    .btn:active { transform: scale(0.97); }
+
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .btn.active {
+      background: var(--accent);
+      color: var(--accent-dark);
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    .btn.green {
+      background: var(--green-bg);
+      border-color: var(--green-border);
+      color: var(--green-text);
+    }
+    .btn.green:hover { background: #223828; }
+
+    .btn.red {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red-text);
+    }
+    .btn.red:hover { background: #3a2222; }
+
+    .btn.blue {
+      background: var(--blue-bg);
+      border-color: var(--blue-border);
+      color: var(--blue-text);
+    }
+    .btn.blue:hover { background: #222640; }
+
+    .btn.guess {
+      background: var(--accent);
+      color: var(--accent-dark);
+      border-color: var(--accent);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      justify-content: center;
+      padding: 10px;
+    }
+    .btn.guess:hover { background: #e6b830; }
+    .btn.guess:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Grid controls */
+    .grid-ctrl {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .grid-step {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      line-height: 1;
+    }
+    .grid-step:hover { background: #2a2a38; }
+    .grid-step:active { transform: scale(0.95); }
+
+    .grid-display {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+      min-width: 44px;
+    }
+
+    /* Speed slider */
+    .speed-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .speed-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .game-layout { flex-direction: column; }
+      .controls { width: 100%; flex-direction: row; flex-wrap: wrap; }
+      .ctrl-card { flex: 1; min-width: 130px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">GUESS<span>IT</span></div>
+    <div class="header-right">
+      <div class="stat-box">
+        <div class="stat-label">Total Score</div>
+        <div class="stat-val" id="total-score">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Picture</div>
+        <div class="stat-val small" id="pic-counter">1 / 8</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="game-layout">
+
+    <!-- Image + info -->
+    <div class="image-wrap">
+      <div class="image-frame" id="image-frame">
+        <img class="base-image" id="base-img" src="" alt="Guess the picture" />
+        <div class="grid-overlay" id="grid-overlay"></div>
+        <div class="toast" id="toast"></div>
+      </div>
+
+      <div class="pic-info-bar">
+        <span class="pic-hint" id="pic-hint">Click a square to reveal it</span>
+        <span class="squares-badge">Hidden: <strong id="hidden-count">16</strong></span>
+      </div>
+
+      <div class="round-history" id="round-history"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+
+      <div class="ctrl-card">
+        <div class="ctrl-title">Reveal</div>
+        <button class="btn" id="btn-auto" onclick="toggleAuto()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Auto reveal
+        </button>
+        <div class="speed-wrap" id="speed-wrap">
+          <div class="speed-row"><span>Fast</span><span>Slow</span></div>
+          <input type="range" id="speed-slider" min="600" max="3000" step="200" value="1400" />
+        </div>
+        <button class="btn green" onclick="revealAll()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          Show all
+        </button>
+        <button class="btn red" onclick="hideAll()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          Hide all
+        </button>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-title">Grid size</div>
+        <div class="grid-ctrl">
+          <button class="grid-step" onclick="changeGrid(-1)" aria-label="smaller grid">−</button>
+          <div class="grid-display" id="grid-display">4×4</div>
+          <button class="grid-step" onclick="changeGrid(1)" aria-label="larger grid">+</button>
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-title">Game</div>
+        <button class="btn guess" id="btn-guess" onclick="makeGuess()">✓ Guess!</button>
+        <button class="btn blue" onclick="nextPicture()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          Next picture
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────
+    // PICTURES — swap these URLs for your own images!
+    // Each entry: { url: 'path/to/image.jpg', label: 'Answer hint (shown after guess)' }
+    // For GitHub Pages: put images in same folder and use relative paths like './img/photo1.jpg'
+    // ─────────────────────────────────────────────
+    const PICTURES = [
+      { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80', label: 'Mountain landscape' },
+      { url: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?w=800&q=80', label: 'Fox in snow' },
+      { url: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=800&q=80', label: 'Forest path' },
+      { url: 'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=800&q=80', label: 'City at night' },
+      { url: 'https://images.unsplash.com/photo-1455156218388-5e61b526818b?w=800&q=80', label: 'Hot air balloon' },
+      { url: 'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=800&q=80', label: 'Dog portrait' },
+      { url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80', label: 'Person smiling' },
+      { url: 'https://images.unsplash.com/photo-1504701954957-2010ec3bcec1?w=800&q=80', label: 'Ocean waves' },
+    ];
+
+    // ─── State ───
+    let gridSize = 4;
+    let currentPic = 0;
+    let tiles = [];
+    let autoTimer = null;
+    let autoRunning = false;
+    let totalScore = 0;
+    let guessedThisRound = false;
+    let roundResults = [];
+
+    // ─── Init ───
+    function init() {
+      guessedThisRound = false;
+      document.getElementById('btn-guess').disabled = false;
+      stopAuto();
+
+      const pic = PICTURES[currentPic];
+      const img = document.getElementById('base-img');
+      img.src = pic.url;
+      document.getElementById('pic-counter').textContent = `${currentPic + 1} / ${PICTURES.length}`;
+      document.getElementById('pic-hint').textContent = 'Click a square to reveal it';
+
+      buildGrid();
+      renderHistory();
+    }
+
+    // ─── Grid ───
+    function buildGrid() {
+      const overlay = document.getElementById('grid-overlay');
+      overlay.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+      overlay.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+      overlay.innerHTML = '';
+      tiles = [];
+
+      const total = gridSize * gridSize;
+      for (let i = 0; i < total; i++) {
+        const t = document.createElement('div');
+        t.className = 'tile';
+        t.addEventListener('click', () => revealTile(i));
+        overlay.appendChild(t);
+        tiles.push(t);
+      }
+      updateHiddenCount();
+      document.getElementById('grid-display').textContent = `${gridSize}×${gridSize}`;
+    }
+
+    function changeGrid(delta) {
+      const newSize = gridSize + delta;
+      if (newSize < 2 || newSize > 10) return;
+      gridSize = newSize;
+
+      // Preserve which fraction of tiles were revealed
+      const prevTotal = tiles.length;
+      const revealedCount = tiles.filter(t => t.classList.contains('revealed')).length;
+      buildGrid();
+
+      // Re-reveal proportionally
+      const newTotal = tiles.length;
+      const toReveal = Math.round((revealedCount / prevTotal) * newTotal);
+      const indices = shuffleArray([...Array(newTotal).keys()]);
+      for (let i = 0; i < toReveal; i++) {
+        tiles[indices[i]].classList.add('revealed');
+      }
+      updateHiddenCount();
+    }
+
+    function revealTile(i) {
+      if (tiles[i].classList.contains('revealed')) return;
+      tiles[i].classList.add('revealed');
+      updateHiddenCount();
+    }
+
+    function revealAll() {
+      tiles.forEach(t => t.classList.add('revealed'));
+      updateHiddenCount();
+    }
+
+    function hideAll() {
+      tiles.forEach(t => t.classList.remove('revealed'));
+      updateHiddenCount();
+    }
+
+    function updateHiddenCount() {
+      const hidden = tiles.filter(t => !t.classList.contains('revealed')).length;
+      document.getElementById('hidden-count').textContent = hidden;
+    }
+
+    function hiddenCount() {
+      return tiles.filter(t => !t.classList.contains('revealed')).length;
+    }
+
+    // ─── Auto reveal ───
+    function toggleAuto() {
+      if (autoRunning) {
+        stopAuto();
+      } else {
+        startAuto();
+      }
+    }
+
+    function startAuto() {
+      autoRunning = true;
+      const btn = document.getElementById('btn-auto');
+      btn.classList.add('active');
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+          <rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+        Stop auto
+      `;
+      scheduleNext();
+    }
+
+    function scheduleNext() {
+      if (!autoRunning) return;
+      const delay = parseInt(document.getElementById('speed-slider').value);
+      autoTimer = setTimeout(() => {
+        const hidden = tiles.map((t, i) => t.classList.contains('revealed') ? -1 : i).filter(i => i >= 0);
+        if (hidden.length === 0) { stopAuto(); return; }
+        const pick = hidden[Math.floor(Math.random() * hidden.length)];
+        revealTile(pick);
+        scheduleNext();
+      }, delay);
+    }
+
+    function stopAuto() {
+      autoRunning = false;
+      clearTimeout(autoTimer);
+      const btn = document.getElementById('btn-auto');
+      btn.classList.remove('active');
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        Auto reveal
+      `;
+    }
+
+    // ─── Scoring ───
+    // Points = squares still hidden × 10 (min 10 if all revealed)
+    function makeGuess() {
+      if (guessedThisRound) return;
+      guessedThisRound = true;
+      document.getElementById('btn-guess').disabled = true;
+      stopAuto();
+
+      const hidden = hiddenCount();
+      const total = tiles.length;
+      const points = Math.max(10, hidden * 10);
+
+      totalScore += points;
+      document.getElementById('total-score').textContent = totalScore;
+
+      roundResults[currentPic] = { points, hidden, total };
+      renderHistory();
+
+      const label = PICTURES[currentPic].label;
+      showToast(`+${points} pts — ${label}`);
+      document.getElementById('pic-hint').textContent = `Answer: ${label} · +${points} points`;
+
+      revealAll();
+    }
+
+    function nextPicture() {
+      stopAuto();
+      if (currentPic < PICTURES.length - 1) {
+        // Mark as skipped if not guessed
+        if (!guessedThisRound && roundResults[currentPic] === undefined) {
+          roundResults[currentPic] = { points: 0, skipped: true };
+        }
+        currentPic++;
+        init();
+      } else {
+        showEndScreen();
+      }
+    }
+
+    function showEndScreen() {
+      document.getElementById('pic-hint').textContent = '🎉 Game over! Final score: ' + totalScore;
+      showToast('Game over! Score: ' + totalScore);
+    }
+
+    // ─── Toast ───
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    // ─── Round history chips ───
+    function renderHistory() {
+      const row = document.getElementById('round-history');
+      row.innerHTML = '';
+      for (let i = 0; i <= currentPic; i++) {
+        const r = roundResults[i];
+        const chip = document.createElement('div');
+        if (r && r.points > 0) {
+          chip.className = 'round-chip scored';
+          chip.textContent = `Pic ${i + 1}: +${r.points}`;
+        } else if (r && r.skipped) {
+          chip.className = 'round-chip skipped';
+          chip.textContent = `Pic ${i + 1}: skipped`;
+        } else {
+          chip.className = 'round-chip';
+          chip.textContent = `Pic ${i + 1}: —`;
+        }
+        row.appendChild(chip);
+      }
+    }
+
+    // ─── Helpers ───
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // ─── Start ───
+    init();
+  </script>
+</body>
+</html>
